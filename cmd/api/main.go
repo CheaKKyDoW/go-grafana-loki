@@ -13,6 +13,9 @@ import (
 	"go-clean-arch/internal/shared/middleware"
 
 	// User domain
+	userHandler "go-clean-arch/internal/user/delivery/http/handler"
+	userRepository "go-clean-arch/internal/user/repository"
+	userUseCase "go-clean-arch/internal/user/usecase"
 
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
