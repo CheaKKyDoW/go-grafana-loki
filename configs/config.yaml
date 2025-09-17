@@ -1,0 +1,25 @@
+server:
+  port: "8080"
+  mode: "debug"
+
+database:
+  host: "localhost"
+  port: "5432"
+  user: "postgres"
+  password: "password"
+  dbname: "cleanarch"
+  sslmode: "disable"
+
+jwt:
+  secret: "your-super-secret-jwt-key-change-this-in-production"
+
+log:
+  level: "info"
+
+loki:
+  url: "http://localhost:3100"
+  enabled: true
+  labels:
+    service: "go-clean-arch-api"
+    env: "development"
+    version: "1.0.0"

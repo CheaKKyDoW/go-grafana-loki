@@ -1,0 +1,8 @@
+.git
+.gitignore
+README.md
+Dockerfile
+.dockerignore
+services/
+test-build.sh
+mono-repo.md

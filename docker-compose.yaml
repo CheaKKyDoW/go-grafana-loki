@@ -1,0 +1,123 @@
+networks:
+  loki:
+  app-network:
+    driver: bridge
+
+services:
+  # Your existing Loki stack
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - loki
+      - app-network
+
+  promtail:
+    image: grafana/promtail:latest
+    volumes:
+      - /var/log:/var/log
+      - ./promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - loki
+      - app-network
+
+  grafana:
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_FEATURE_TOGGLES_ENABLE=alertingSimplifiedRouting,alertingQueryAndExpressionsStepMode
+    entrypoint:
+      - sh
+      - -euc
+      - |
+        mkdir -p /etc/grafana/provisioning/datasources
+        cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
+        apiVersion: 1
+        datasources:
+        - name: Loki
+          type: loki
+          access: proxy 
+          orgId: 1
+          url: http://loki:3100
+          basicAuth: false
+          isDefault: true
+          version: 1
+          editable: false
+        EOF
+        /run.sh
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    networks:
+      - loki
+      - app-network
+
+  # Go Clean Architecture API
+  go-clean-arch-api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=password
+      - DATABASE_DBNAME=cleanarch
+      - JWT_SECRET=your-super-secret-jwt-key
+      - LOKI_URL=http://loki:3100
+      - LOKI_ENABLED=true
+    depends_on:
+      - postgres
+      - loki
+    networks:
+      - app-network
+    labels:
+      - "promtail.enable=true"
+      - "promtail.job=go-clean-arch-api"
+
+  # Another service example for mono repo
+  go-clean-arch-user-service:
+    build: 
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8080"
+    environment:
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=password
+      - DATABASE_DBNAME=userservice
+      - LOKI_URL=http://loki:3100
+      - LOKI_ENABLED=true
+    depends_on:
+      - postgres
+      - loki
+    networks:
+      - app-network
+    labels:
+      - "promtail.enable=true"
+      - "promtail.job=go-clean-arch-user-service"
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=cleanarch
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
